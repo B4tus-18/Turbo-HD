@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0d1b2a">
+<title>Turbó Kör - HD Edition</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:#0d1b2a;font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;color:#fff;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+canvas#view{position:fixed;inset:0;width:100%;height:100%;display:block}
+.hud{position:fixed;pointer-events:none;text-shadow:0 2px 0 rgba(0,0,0,.45);font-weight:800}
+#left{top:calc(env(safe-area-inset-top,0px) + 10px);left:calc(env(safe-area-inset-left,0px) + 12px);font-size:20px;line-height:1.4}
+#right{top:calc(env(safe-area-inset-top,0px) + 10px);right:calc(env(safe-area-inset-right,0px) + 12px);text-align:right}
+#speed{font-size:44px;line-height:1;color:#ffd24a}#speed small{font-size:16px;color:#fff}#time{font-size:18px;margin-top:4px}
+#map{position:fixed;left:calc(env(safe-area-inset-left,0px) + 12px);top:calc(env(safe-area-inset-top,0px) + 82px);width:110px;height:110px;border-radius:14px;background:rgba(8,20,40,.45);pointer-events:none}
+#msg{position:fixed;left:0;right:0;top:25%;text-align:center;pointer-events:none;font-size:92px;font-weight:900;font-style:italic;text-shadow:0 5px 0 rgba(0,0,0,.4)}
+#topb{position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);left:50%;transform:translateX(-50%);display:flex;gap:10px}
+#topb button{width:44px;height:44px;border-radius:14px;border:0;background:rgba(10,25,50,.55);color:#fff;font-size:22px}
+#overlay{position:fixed;inset:0;display:flex;background:linear-gradient(90deg,rgba(6,14,30,.94),rgba(6,14,30,.8) 42%,rgba(6,14,30,0) 75%)}
+#panel{width:min(470px,100%);height:100%;overflow-y:auto;touch-action:pan-y;padding:calc(env(safe-area-inset-top,0px) + 14px) 18px calc(env(safe-area-inset-bottom,0px) + 18px) calc(env(safe-area-inset-left,0px) + 18px)}
+#panel h1{margin:0;font-size:44px;font-style:italic;font-weight:900;color:#ffd24a;text-shadow:0 4px 0 rgba(0,0,0,.4);transform:skewX(-6deg)}
+#panel h3{margin:14px 0 6px;font-size:15px;font-weight:700;opacity:.8}
+#panel p{margin:6px 0 0;font-size:15px;line-height:1.45;opacity:.92}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:2px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;border-radius:12px;padding:9px 13px;font:inherit;font-size:14px;font-weight:700}
+.chip.sel{background:#ffb938;color:#3a1a00;border-color:#ffb938}
+.chip.sw{width:34px;height:34px;padding:0;border-radius:50%;border-color:rgba(255,255,255,.5)}.chip.sw.sel{outline:3px solid #ffb938;outline-offset:2px}
+#stats{margin-top:8px;font-size:13px;opacity:.9;display:flex;flex-wrap:wrap;gap:4px 14px}
+#auto{margin-top:10px;font-size:14px;display:flex;gap:8px;align-items:center}#auto input{width:20px;height:20px}
+#go{display:block;width:100%;margin-top:18px;border:0;border-radius:18px;padding:15px;font:inherit;font-size:22px;font-weight:900;color:#3a1a00;background:#ffb938;box-shadow:0 5px 0 #b87400}
+#go:active{transform:translateY(4px);box-shadow:0 1px 0 #b87400}
+#touch{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:flex-end;padding:0 calc(env(safe-area-inset-right,0px) + 16px) calc(env(safe-area-inset-bottom,0px) + 16px) calc(env(safe-area-inset-left,0px) + 16px);pointer-events:none}
+.grp{display:flex;gap:12px;pointer-events:auto}.grp.r{margin-left:auto}
+.tb{width:82px;height:82px;border-radius:22px;border:0;color:#fff;font:inherit;font-size:15px;font-weight:800;background:rgba(10,25,50,.55);border-bottom:4px solid rgba(0,0,0,.35);touch-action:none}
+.tb.on{background:rgba(255,185,56,.85);color:#3a1a00}
+#gas{background:rgba(40,150,80,.65)}#brk{background:rgba(190,60,60,.65)}#gas.on{background:rgba(70,210,110,.95);color:#06210f}#brk.on{background:rgba(255,100,100,.95);color:#2a0606}
+#pad{width:min(44vw,260px);height:84px;border-radius:42px;background:rgba(10,25,50,.5);border:3px solid rgba(255,255,255,.3);position:relative;touch-action:none}
+#knob{position:absolute;top:50%;left:50%;width:62px;height:62px;margin:-31px;border-radius:50%;background:rgba(255,185,56,.9)}
+.m .hud,.m #map,.m #touch,.m #topb{display:none}body:not(.m) #overlay{display:none}
+body[data-ctl=key] #touch{display:none}
+@media (max-height:430px){.tb{width:68px;height:68px}#msg{font-size:64px}#speed{font-size:34px}#panel h1{font-size:32px}}
+@media (max-width:600px){#overlay{background:rgba(6,14,30,.88)}}
+</style>
+</head>
+<body class="m">
+<canvas id="view"></canvas>
+<div class="hud" id="left"><div id="pos">Hely: 1/8</div><div id="lap">Kör: 1/3</div></div>
+<div class="hud" id="right"><div id="speed">0 <small>km/h</small></div><div id="time">0:00.00</div></div>
+<canvas id="map" width="240" height="240"></canvas>
+<div class="hud" id="msg"></div>
+<div id="topb"><button id="bMenu" aria-label="Menü">☰</button><button id="bRst" aria-label="Vissza a pályára">↺</button></div>
+<div id="touch">
+  <div class="grp"><button class="tb" id="bl">◀</button><button class="tb" id="br">▶</button><div id="pad"><div id="knob"></div></div></div>
+  <div class="grp r"><button class="tb" id="brk">Fék</button><button class="tb" id="gas">Gáz</button></div>
+</div>
+<div id="overlay"><div id="panel">
+  <h1 id="ovTitle">Turbó Kör HD</h1>
+  <p id="ovText"></p><p id="rec"></p>
+  <h3>Pálya</h3><div class="row" id="rTrack"></div>
+  <h3>Autó</h3><div class="row" id="rCar"></div><div id="stats"></div>
+  <h3>Szín</h3><div class="row" id="rCol"></div>
+  <h3>Vezérlés</h3><div class="row" id="rCtl"></div>
+  <label id="auto"><input type="checkbox" id="autoC"> Automata gáz</label>
+  <button id="go">Indítás</button>
+</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  if (typeof THREE === 'undefined') {
+    $('ovText').textContent = 'A játék a three.js könyvtárat használja, csatlakozz az internetre a betöltéshez.';
+    $('go').style.display = 'none'; return;
+  }
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), wrap01 = (u) => ((u % 1) + 1) % 1;
+  const LAPS = 3, N = 700, ROAD_W = 16;
+  const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+  // ---------- Adatok ----------
+  const TRACKS = [
+    { n: 'Zöld völgy', sky: 0x64b5f6, gr: 0x2e7d32, as: [0x37474f, 0x455a64], hm: [0xffffff, 0x1b5e20, .85], sun: [0xfff8e1, .9], fog: [150, 750], deco: 'tree',
+      pts: [[0,-200],[150,-180],[260,-60],[220,90],[100,140],[50,70],[-60,100],[-200,150],[-280,20],[-200,-120],[-100,-150]] },
+    { n: 'Sivatag', sky: 0xffb74d, gr: 0xe65100, as: [0x3e2723, 0x4e342e], hm: [0xffe0b2, 0xbf360c, .9], sun: [0xffecb3, 1.0], fog: [150, 700], deco: 'cactus',
+      pts: [[0,-220],[180,-200],[300,-80],[280,60],[160,120],[170,230],[40,260],[-90,180],[-70,60],[-200,40],[-300,-60],[-220,-180]] },
+    { n: 'Éjjeli város', sky: 0x050b14, gr: 0x0d1b2a, as: [0x1c2541, 0x242d49], hm: [0x485460, 0x0b132b, .7], sun: [0x7f8fa6, .3], fog: [60, 500], deco: 'city', night: 1,
+      pts: [[0,-150],[120,-160],[200,-90],[160,-10],[220,70],[140,150],[20,120],[-40,190],[-150,170],[-200,80],[-130,10],[-210,-60],[-130,-140]] }
+  ];
+
+  const CARS = [
+    { n: 'Super GT', top: 62, acc: 1.0, grip: 1.0, r: [4, 4, 4], w: 2.1, wr: .48, wz: [1.35, -1.35], fz: 2.3, wing: 1,
+      body: [[-2.3,.28],[-2.35,.65],[-1.6,.82],[.4,.88],[1.8,.65],[2.3,.42],[2.3,.28]], cab: [[-1.2,.82],[-.65,1.38],[.35,1.38],[1.1,.85]], roof: [-.15, 0.95, 1.38] },
+    { n: 'Muscle V8', top: 57, acc: 1.3, grip: .85, r: [3, 5, 3], w: 2.25, wr: .54, wz: [1.4, -1.4], fz: 2.25,
+      body: [[-2.25,.35],[-2.25,.95],[1.1,1.0],[2.25,.75],[2.25,.35]], cab: [[-1.6,1.0],[-1.1,1.58],[.5,1.58],[1.2,1.02]], roof: [-.3, 1.4, 1.58] },
+    { n: 'Hypercar', top: 66, acc: .9, grip: 1.2, r: [5, 3, 5], w: 2.05, wr: .45, wz: [1.5, -1.45], fz: 2.4, open: 1, wx: 1.05,
+      body: [[-2.4,.22],[-2.4,.65],[-.6,.75],[.5,.72],[2.4,.38],[2.4,.22]] }
+  ];
+  const COLORS = [0xe63946, 0x1d3557, 0xffb703, 0x2a9d8f, 0xf1faee, 0x7209b7];
+
+  // ---------- Beállítások ----------
+  const load = () => { try { return JSON.parse(localStorage.getItem('turbo-kor-opt')) || {}; } catch (e) { return {}; } };
+  const opt = Object.assign({ track: 0, car: 0, col: 0, ctl: isTouch ? 'btn' : 'key', auto: false }, load());
+  const save = () => { try { localStorage.setItem('turbo-kor-opt', JSON.stringify(opt)); } catch (e) {} };
+  const best = () => { try { return parseFloat(localStorage.getItem('turbo-kor-best-' + opt.track)) || 0; } catch (e) { return 0; } };
+  const saveBest = (t) => { try { localStorage.setItem('turbo-kor-best-' + opt.track, String(t)); } catch (e) {} };
+  const fmt = (t) => { const m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(2); };
+
+  // ---------- Színtér & Megvilágítás ----------
+  const canvas = $('view');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(); scene.fog = new THREE.Fog(0x000000, 100, 600);
+  const camera = new THREE.PerspectiveCamera(65, 1, 0.5, 2500);
+  
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, .8); scene.add(hemi);
+  const sun = new THREE.DirectionalLight(0xffffff, .9); 
+  sun.position.set(200, 300, 100); 
+  sun.castShadow = true;
+  sun.shadow.mapSize.width = 1024;
+  sun.shadow.mapSize.height = 1024;
+  sun.shadow.camera.near = 10;
+  sun.shadow.camera.far = 800;
+  const d = 150;
+  sun.shadow.camera.left = -d; sun.shadow.camera.right = d;
+  sun.shadow.camera.top = d; sun.shadow.camera.bottom = -d;
+  scene.add(sun);
+
+  const plight = new THREE.PointLight(0xfff0c0, 1.5, 90); scene.add(plight);
+  let W = 1, H = 1;
+  function resize() {
+    W = window.innerWidth; H = window.innerHeight;
+    renderer.setSize(W, H, false); camera.aspect = W / H; camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize); resize();
+
+  const killObj = (o) => { scene.remove(o); o.traverse((c) => { if (c.geometry) c.geometry.dispose(); }); };
+
+  // ---------- Pálya és Környezet ----------
+  let curve, L, P, T, S, curv, world, theme, minX, maxX, minZ, maxZ, mScale;
+
+  function ribbon(offA, offB, y, colorFn, filter) {
+    const pos = [], col = [], nor = [], idx = []; let v = 0;
+    for (let i = 0; i < N; i++) {
+      if (filter && !filter(i)) continue;
+      const j = (i + 1) % N, c = colorFn(i);
+      [[i, offA], [i, offB], [j, offA], [j, offB]].forEach(([k, o]) => {
+        pos.push(P[k].x + S[k].x * o, y, P[k].z + S[k].z * o); col.push(c.r, c.g, c.b); nor.push(0, 1, 0);
+      });
+      idx.push(v, v + 2, v + 1, v + 1, v + 2, v + 3); v += 4;
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    g.setIndex(idx);
+    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7 }));
+    m.receiveShadow = true;
+    return m;
+  }
+
+  function inst(geo, mat, items, castShd = true) {
+    const m = new THREE.InstancedMesh(geo, mat, items.length), o = new THREE.Object3D(), c = new THREE.Color();
+    m.castShadow = castShd; m.receiveShadow = true;
+    items.forEach((it, i) => {
+      o.position.set(it.x, it.y, it.z); o.scale.set(it.sx, it.sy, it.sz); o.rotation.y = it.r || 0; o.updateMatrix();
+      m.setMatrixAt(i, o.matrix); if (it.c != null) m.setColorAt(i, c.setHex(it.c));
+    });
+    m.frustumCulled = false; world.add(m);
+  }
+
+  function spots(n, gap) {
+    const out = []; let tries = 0;
+    while (out.length < n && tries < 7000) {
+      tries++;
+      const x = minX - 180 + Math.random() * (maxX - minX + 360), z = minZ - 180 + Math.random() * (maxZ - minZ + 360);
+      let ok = true;
+      for (let i = 0; i < N; i += 3) { const dx = P[i].x - x, dz = P[i].z - z; if (dx * dx + dz * dz < gap * gap) { ok = false; break; } }
+      if (ok) out.push({ x, z, k: Math.random() });
+    }
+    return out;
+  }
+
+  function winTex() {
+    const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+    g.fillStyle = '#0f1423'; g.fillRect(0, 0, 64, 64);
+    for (let x = 0; x < 4; x++) for (let y = 0; y < 4; y++) { g.fillStyle = Math.random() < .5 ? '#ffca3a' : '#1e2538'; g.fillRect(x * 16 + 4, y * 16 + 4, 8, 9); }
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+  }
+
+  function buildWorld(k) {
+    theme = TRACKS[k];
+    if (world) { scene.remove(world); world.traverse((c) => { if (c.geometry) c.geometry.dispose(); }); }
+    world = new THREE.Group(); scene.add(world);
+    curve = new THREE.CatmullRomCurve3(theme.pts.map(([x, z]) => new THREE.Vector3(x, 0, z)), true, 'centripetal');
+    L = curve.getLength(); P = []; T = []; S = []; curv = [];
+    for (let i = 0; i < N; i++) {
+      const t = curve.getTangentAt(i / N).setY(0).normalize();
+      P.push(curve.getPointAt(i / N)); T.push(t); S.push(new THREE.Vector3(t.z, 0, -t.x));
+    }
+    for (let i = 0; i < N; i++) curv.push(Math.acos(clamp(T[i].dot(T[(i + 4) % N]), -1, 1)));
+    minX = minZ = Infinity; maxX = maxZ = -Infinity;
+    P.forEach((p) => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z); });
+    mScale = Math.min(200 / (maxX - minX), 200 / (maxZ - minZ));
+
+    scene.background.setHex(theme.sky); scene.fog.color.setHex(theme.sky); scene.fog.near = theme.fog[0]; scene.fog.far = theme.fog[1];
+    hemi.color.setHex(theme.hm[0]); hemi.groundColor.setHex(theme.hm[1]); hemi.intensity = theme.hm[2];
+    sun.color.setHex(theme.sun[0]); sun.intensity = theme.sun[1]; plight.visible = !!theme.night;
+
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(5000, 5000), new THREE.MeshStandardMaterial({ color: theme.gr, roughness: 0.9 }));
+    ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; world.add(ground);
+    
+    const aA = new THREE.Color(theme.as[0]), aB = new THREE.Color(theme.as[1]);
+    world.add(ribbon(-ROAD_W / 2, ROAD_W / 2, .1, (i) => (Math.floor(i / 5) % 2 ? aA : aB)));
+    const kr = new THREE.Color(0xd8352f), kw = new THREE.Color(0xf4f4f4), kc = (i) => (Math.floor(i / 3) % 2 ? kr : kw);
+    world.add(ribbon(ROAD_W / 2, ROAD_W / 2 + 1.6, .14, kc), ribbon(-ROAD_W / 2 - 1.6, -ROAD_W / 2, .14, kc));
+    const lc = new THREE.Color(0xf2f2f2);
+    world.add(ribbon(-.2, .2, .16, () => lc, (i) => Math.floor(i / 4) % 2 === 0));
+
+    // Rajtcél kapu
+    const cv = document.createElement('canvas'); cv.width = 128; cv.height = 32; const g = cv.getContext('2d');
+    for (let x = 0; x < 16; x++) for (let y = 0; y < 4; y++) { g.fillStyle = (x + y) % 2 ? '#111' : '#fff'; g.fillRect(x * 8, y * 8, 8, 8); }
+    const sl = new THREE.Mesh(new THREE.PlaneGeometry(ROAD_W, 3), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv) }));
+    sl.rotation.x = -Math.PI / 2;
+    const q = new THREE.Group(); q.add(sl); q.position.set(P[0].x, .2, P[0].z); q.rotation.y = Math.atan2(T[0].x, T[0].z); world.add(q);
+    
+    const postM = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.8 });
+    [-1, 1].forEach((s) => {
+      const p = new THREE.Mesh(new THREE.BoxGeometry(.8, 9, .8), postM);
+      p.position.set(P[0].x + S[0].x * s * (ROAD_W / 2 + 2), 4.5, P[0].z + S[0].z * s * (ROAD_W / 2 + 2)); p.castShadow = true; world.add(p);
+    });
+    const bn = new THREE.Mesh(new THREE.BoxGeometry(ROAD_W + 4.8, 1.8, .8), new THREE.MeshStandardMaterial({ color: 0xd8352f, roughness: 0.3 }));
+    bn.position.set(P[0].x, 9, P[0].z); bn.rotation.y = Math.atan2(T[0].x, T[0].z); bn.castShadow = true; world.add(bn);
+
+    // Felhők a háttérben
+    if (!theme.night) {
+      const cloudGeo = new THREE.DodecahedronGeometry(20, 1);
+      const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 });
+      const cSpots = spots(35, 80);
+      cSpots.forEach(s => {
+        const cg = new THREE.Group();
+        for(let i=0; i<4; i++){
+          const cm = new THREE.Mesh(cloudGeo, cloudMat);
+          cm.position.set((Math.random()-0.5)*25, (Math.random()-0.5)*8, (Math.random()-0.5)*25);
+          cm.scale.set(1+Math.random(), 0.6+Math.random()*0.4, 1+Math.random());
+          cg.add(cm);
+        }
+        cg.position.set(s.x, 90 + Math.random()*40, s.z);
+        world.add(cg);
+      });
+    }
+
+    // Pályaspecifikus Díszítés
+    const std = (c, r=0.5, m=0.1) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m });
+    if (theme.deco === 'tree') {
+      const s = spots(280, 22).map((a) => Object.assign(a, { sc: .8 + Math.random() * .9 }));
+      inst(new THREE.CylinderGeometry(.5, .8, 3.5, 7), std(0x5d4037, 0.9), s.map((a) => ({ x: a.x, y: 1.75, z: a.z, sx: 1, sy: 1, sz: 1 })));
+      inst(new THREE.ConeGeometry(3.5, 9, 7), std(0x2e7d32, 0.7), s.map((a) => ({ x: a.x, y: 3.5 + 4.5 * a.sc, z: a.z, sx: a.sc, sy: a.sc, sz: a.sc, c: [0x2e7d32, 0x1b5e20, 0x388e3c][Math.floor(a.k * 3)] })));
+    } else if (theme.deco === 'cactus') {
+      const s = spots(130, 20).map((a) => Object.assign(a, { sc: .7 + Math.random() * .8 }));
+      inst(new THREE.CylinderGeometry(.55, .65, 5, 8), std(0x43a047, 0.6), s.map((a) => ({ x: a.x, y: 2.5 * a.sc, z: a.z, sx: a.sc, sy: a.sc, sz: a.sc })));
+      inst(new THREE.CylinderGeometry(.3, .3, 2.2, 6), std(0x43a047, 0.6), s.map((a) => ({ x: a.x + a.sc * .9, y: 3.2 * a.sc, z: a.z, sx: a.sc, sy: a.sc, sz: a.sc })));
+      inst(new THREE.DodecahedronGeometry(2.5), std(0x8d6e63, 0.9), spots(90, 18).map((a) => ({ x: a.x, y: 1, z: a.z, sx: 1 + a.k * 1.5, sy: .6 + a.k, sz: 1 + a.k * 1.3, r: a.k * 6, c: [0x8d6e63, 0xa1887f, 0x6d4c41][Math.floor(a.k * 3)] })));
+    } else {
+      const tx = winTex();
+      [22, 40, 65].forEach((h) => {
+        const bg = new THREE.BoxGeometry(14, h, 14), uv = bg.attributes.uv;
+        for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 2, uv.getY(i) * h / 8);
+        const m = new THREE.MeshStandardMaterial({ color: 0xffffff, map: tx, roughness: 0.3, emissive: 0xffffff, emissiveMap: tx, emissiveIntensity: .85 });
+        inst(bg, m, spots(40, 26).map((a) => ({ x: a.x, y: h / 2, z: a.z, sx: .8 + a.k * .7, sy: 1, sz: .8 + a.k * .7, r: a.k * 3 })));
+      });
+      const lp = [];
+      for (let i = 0; i < N; i += 12) [-1, 1].forEach((s) => lp.push({ x: P[i].x + S[i].x * s * (ROAD_W / 2 + 3), z: P[i].z + S[i].z * s * (ROAD_W / 2 + 3) }));
+      inst(new THREE.CylinderGeometry(.12, .15, 7.5, 6), std(0x37474f, 0.5, 0.8), lp.map((a) => ({ x: a.x, y: 3.75, z: a.z, sx: 1, sy: 1, sz: 1 })));
+      inst(new THREE.SphereGeometry(.6, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffe082 }), lp.map((a) => ({ x: a.x, y: 7.7, z: a.z, sx: 1, sy: 1, sz: 1 })), false);
+    }
+  }
+
+  // ---------- Ultra-Részletes 3D Autók & Anyagok ----------
+  function prism(pr, w, mat, bev) {
+    const s = new THREE.Shape(); pr.forEach(([z, y], i) => (i ? s.lineTo(z, y) : s.moveTo(z, y)));
+    const d = w - 2 * bev;
+    const g = new THREE.ExtrudeGeometry(s, { depth: d, bevelEnabled: true, bevelSize: bev, bevelThickness: bev, bevelSegments: 4, steps: 1 });
+    g.translate(0, 0, -d / 2); g.rotateY(-Math.PI / 2);
+    const m = new THREE.Mesh(g, mat);
+    m.castShadow = true; m.receiveShadow = true;
+    return m;
+  }
+
+  function createDynamicLicensePlateText() {
+    const c = document.createElement('canvas'); c.width = 128; c.height = 32;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 128, 32);
+    ctx.fillStyle = '#003399'; ctx.fillRect(0, 0, 18, 32);
+    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 10px sans-serif'; ctx.fillText('H', 4, 20);
+    ctx.strokeStyle = '#000000'; ctx.lineWidth = 3; ctx.strokeRect(1, 1, 126, 30);
+    ctx.fillStyle = '#111111'; ctx.font = 'bold 18px monospace'; ctx.fillText('TURBO-1', 24, 22);
+    const t = new THREE.CanvasTexture(c);
+    return t;
+  }
+  const licensePlateTexture = createDynamicLicensePlateText();
+
+  // ---------- Autók: sima, ívelt karosszéria (loft) ----------
+  let carEnv = null;
+  const cr = (a, t) => { const n = a.length - 1, i = Math.min(n - 1, Math.floor(t)), f = t - i, p0 = a[Math.max(i - 1, 0)], p1 = a[i], p2 = a[i + 1], p3 = a[Math.min(i + 2, n)]; return .5 * (2 * p1 + (p2 - p0) * f + (2 * p0 - 5 * p1 + 4 * p2 - p3) * f * f + (3 * p1 - p0 - 3 * p2 + p3) * f * f * f); };
+  function loft(st, ex, mat) {
+    const M = 28, R = (st.length - 1) * 8, col = (k) => st.map((s) => s[k]), Z = col(0), HW = col(1), YB = col(2), YT = col(3), pos = [], idx = [];
+    for (let r = 0; r <= R; r++) {
+      const t = r / R * (st.length - 1), z = cr(Z, t), hw = Math.max(.02, cr(HW, t)), yb = cr(YB, t), yt = Math.max(yb + .03, cr(YT, t)), yc = (yb + yt) / 2, hh = (yt - yb) / 2;
+      for (let j = 0; j < M; j++) { const a = j / M * Math.PI * 2, c = Math.cos(a), s = Math.sin(a); pos.push(Math.sign(c) * Math.pow(Math.abs(c), 2 / ex) * hw, yc + Math.sign(s) * Math.pow(Math.abs(s), 2 / ex) * hh, z); }
+    }
+    for (let r = 0; r < R; r++) for (let j = 0; j < M; j++) { const a = r * M + j, b = r * M + (j + 1) % M, c = a + M, d = b + M; idx.push(a, b, c, b, d, c); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+    mat.side = THREE.DoubleSide; const m = new THREE.Mesh(g, mat); m.castShadow = m.receiveShadow = true; return m;
+  }
+
+  function makeCar(ci, color) {
+    const d = CARS[ci], g = new THREE.Group();
+    
+    // Továbbfejlesztett valósághű autófényezés és anyagszerkezetek (PBR materials)
+    const bodyMat = new THREE.MeshStandardMaterial({ 
+      color: color, 
+      metalness: 0.85, 
+      roughness: 0.15,
+      envMapIntensity: 1.2
+    });
+    const darkMat = new THREE.MeshStandardMaterial({ color: 0x111115, roughness: 0.7, metalness: 0.2 });
+    const carbonMat = new THREE.MeshStandardMaterial({ color: 0x222226, roughness: 0.4, metalness: 0.5 });
+    const chromeMat = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, metalness: 0.95, roughness: 0.05 });
+    const brakeDiscMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.8, roughness: 0.3 });
+    const brakeCalipMat = new THREE.MeshStandardMaterial({ color: 0xd00000, roughness: 0.2 });
+    
+    const tailMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0x990000, emissiveIntensity: 0.6, roughness: 0.2 });
+    const headMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xeeeeee, emissiveIntensity: 0.9, roughness: 0.1 });
+    const glassMat = new THREE.MeshStandardMaterial({ 
+      color: 0x0b1824, 
+      metalness: 0.9, 
+      roughness: 0.05, 
+      transparent: true, 
+      opacity: 0.9,
+    });
+
+    if (!carEnv) {
+      const c = document.createElement('canvas'); c.width = 256; c.height = 128; const x = c.getContext('2d'), gr = x.createLinearGradient(0, 0, 0, 128);
+      gr.addColorStop(0, '#9cc4ff'); gr.addColorStop(.47, '#ffffff'); gr.addColorStop(.5, '#5b5b52'); gr.addColorStop(1, '#1c1c1c');
+      x.fillStyle = gr; x.fillRect(0, 0, 256, 128); x.fillStyle = '#fff'; x.fillRect(30, 18, 40, 9); x.fillRect(150, 12, 60, 8); x.fillRect(100, 34, 25, 6);
+      const tex = new THREE.CanvasTexture(c); tex.mapping = THREE.EquirectangularReflectionMapping;
+      const pm = new THREE.PMREMGenerator(renderer); carEnv = pm.fromEquirectangular(tex).texture; pm.dispose();
+    }
+    [bodyMat, chromeMat, carbonMat, glassMat].forEach((m) => { m.envMap = carEnv; });
+    bodyMat.envMapIntensity = (typeof theme !== 'undefined' && theme.night) ? .35 : 1.1;
+    const add = (m, x, y, z) => { m.position.set(x, y, z); g.add(m); return m; };
+    const box = (w, h, l, m, x, y, z, rx=0, ry=0, rz=0) => { 
+      const b = add(new THREE.Mesh(new THREE.BoxGeometry(w, h, l), m), x, y, z); 
+      b.rotation.set(rx, ry, rz);
+      b.castShadow = true; b.receiveShadow = true;
+      return b; 
+    };
+    const cyl = (r1, r2, h, m, x, y, z, rx=0, ry=0, rz=0, seg=16) => { 
+      const c = add(new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, h, seg), m), x, y, z); 
+      c.rotation.set(rx, ry, rz);
+      c.castShadow = true; c.receiveShadow = true;
+      return c; 
+    };
+
+    const hw = d.w / 2, fz = d.fz;
+    
+    const T = [
+      { b: [[-2.35,.3,.36,.56],[-2.2,.85,.3,.8],[-1.4,1.05,.28,.88],[0,1.02,.26,.86],[1.2,1,.26,.78],[2,.85,.27,.55],[2.35,.35,.3,.42]],
+        c: [[-1.25,.72,.8,.9],[-.8,.8,.82,1.3],[-.1,.76,.84,1.4],[.6,.78,.84,1.32],[1.15,.86,.82,.9]], rf: [-.15, 1, 1.37, 1.1], ny: .56, ty: .66, lz: 1.95, rz: -2.15, mz: .72, my: .98 },
+      { b: [[-2.3,.4,.4,.75],[-2.2,.95,.35,1],[-1,1.12,.33,1.02],[1,1.1,.33,1],[1.9,.95,.34,.82],[2.3,.4,.36,.62]],
+        c: [[-1.7,.85,1,1.1],[-1.15,.9,1,1.55],[.4,.9,1.02,1.58],[1.15,.96,1,1.1]], rf: [-.4, 1.3, 1.55, 1.3], ny: .66, ty: .82, lz: 2.02, rz: -2.12, mz: .9, my: 1.12 },
+      { b: [[-2.4,.3,.25,.5],[-2.1,.75,.22,.72],[-.5,.9,.22,.75],[.8,.7,.22,.62],[2,.4,.22,.42],[2.4,.2,.22,.3]] }
+    ][ci];
+
+    // Sima, ívelt karosszéria
+    g.add(loft(T.b, 3.2, bodyMat));
+
+    if (!d.open) {
+      g.add(loft(T.c, 2.4, glassMat));
+      box(T.rf[3], .05, T.rf[1], bodyMat, 0, T.rf[2], T.rf[0]); // Tető
+      const lpMat = new THREE.MeshBasicMaterial({ map: licensePlateTexture });
+
+      [-1, 1].forEach((s) => {
+        // Sárvédő ívek a kerekek felett
+        [d.wz[0], d.wz[1]].forEach((wz) => {
+          const arch = add(new THREE.Mesh(new THREE.CylinderGeometry(d.wr + .05, d.wr + .05, .5, 24, 1, true, 0, Math.PI), bodyMat), s * (hw + .02), d.wr, wz);
+          arch.rotation.z = Math.PI / 2; arch.material.side = THREE.DoubleSide; arch.castShadow = true;
+        });
+        box(.12, .1, 2.2, carbonMat, s * (hw - .04), .24, 0); // Küszöb
+        // Tükör
+        box(.1, .04, .08, darkMat, s * (hw - .12), T.my, T.mz);
+        box(.2, .12, .26, bodyMat, s * (hw + .02), T.my + .04, T.mz - .05);
+        // Fényszóró és hátsó lámpa a lejtős felületen
+        box(.46, .13, .3, darkMat, s * .58, T.ny, T.lz, -.3);
+        box(.4, .09, .27, headMat, s * .58, T.ny + .01, T.lz + .03, -.3);
+        box(.55, .12, .2, darkMat, s * .62, T.ty, T.rz, .25);
+        box(.48, .08, .18, tailMat, s * .62, T.ty, T.rz - .02, .25);
+        // Króm kipufogóvégek
+        cyl(.07, .07, .45, chromeMat, s * .36, .3, -fz - .1, Math.PI / 2);
+        cyl(.05, .05, .46, darkMat, s * .36, .3, -fz - .11, Math.PI / 2);
+      });
+
+      box(.8, .12, .12, darkMat, 0, T.ny - .2, fz);                  // Hűtőrács
+      box(d.w * .8, .05, .45, carbonMat, 0, .24, fz - .05);          // Első splitter
+      box(d.w * .8, .16, .3, carbonMat, 0, .3, -fz + .05);           // Diffúzor
+      box(.5, .14, .02, lpMat, 0, T.ty - .2, -fz - .03);             // Rendszám
+
+      if (d.wing) {
+        box(d.w * 1.15, .05, .52, carbonMat, 0, 1.6, -fz - .05);
+        [-1, 1].forEach((s) => {
+          box(.06, .8, .2, carbonMat, s * .55, 1.18, -2.1);          // Szárnytartó
+          box(.04, .28, .55, bodyMat, s * (hw * 1.15 + .02), 1.6, -fz - .05); // Végláp
+        });
+      }
+    } else {
+      // Nyitott Hypercar / Versenyautó extrákkal
+      box(2.4, .06, .65, carbonMat, 0, .22, fz + .28);
+      [-1, 1].forEach((s) => {
+        box(.06, .35, .65, bodyMat, s * 1.2, .32, fz + .28);
+        box(.06, .6, .75, bodyMat, s * .88, 1.13, -fz - .1);
+        box(.75, .42, 1.7, bodyMat, s * .52, .52, -.2);
+      });
+      box(1.8, .06, .75, carbonMat, 0, 1.35, -fz - .1);
+      box(.16, .95, .34, carbonMat, 0, .875, -fz + .05); // Szárnytartó a karosszériáig
+      [-1, 1].forEach((s) => box(.07, .96, .22, carbonMat, s * .5, .88, -fz + .05));
+      
+      // Pilóta részletes sisakkal
+      const helmet = add(new THREE.Mesh(new THREE.SphereGeometry(.22, 16, 14), new THREE.MeshStandardMaterial({ color: 0xfbfbfb, roughness: 0.1, metalness: 0.5 })), 0, 0.95, -.2);
+      helmet.scale.set(1, 1.05, 1.15);
+      box(.32, .1, .18, darkMat, 0, .98, -.1); // Sisak vizor
+      
+      box(.35, .55, .8, bodyMat, 0, .9, -.9);
+      box(.55, .12, .1, tailMat, 0, .58, -fz - .05);
+    }
+
+    // Ultra-Részletes Kerekek (Sport gumi mintázat, féktárcsa, féknyereg, alufelni)
+    const wx = d.wx || hw + .02, tw = d.open ? .52 : .42; g.userData.wheels = [];
+    [[-1, 1], [1, 1], [-1, -1], [1, -1]].forEach(([sx, sz]) => {
+      const out = new THREE.Group(); out.position.set(sx * wx, d.wr, sz > 0 ? d.wz[0] : d.wz[1]);
+      const spin = new THREE.Group(); out.add(spin);
+
+      // Gumiabroncs lekerekített profillal
+      const tire = new THREE.Mesh(new THREE.LatheGeometry([[.72,-.5],[.92,-.5],[.99,-.36],[1,0],[.99,.36],[.92,.5],[.72,.5]].map(([r, y]) => new THREE.Vector2(r * d.wr, y * tw)), 24), darkMat);
+      tire.rotation.z = Math.PI / 2; tire.castShadow = true; spin.add(tire);
+
+      // Dupla felni perem
+      const rimOuter = new THREE.Mesh(new THREE.CylinderGeometry(d.wr * .72, d.wr * .72, tw + .01, 24), chromeMat);
+      rimOuter.rotation.z = Math.PI / 2; spin.add(rimOuter);
+
+      const rimInner = new THREE.Mesh(new THREE.CylinderGeometry(d.wr * .62, d.wr * .62, tw + .03, 24), darkMat);
+      rimInner.rotation.z = Math.PI / 2; spin.add(rimInner);
+
+      // Dupla küllős sport alufelni dizájn
+      for (let i = 0; i < 5; i++) {
+        const sp = new THREE.Mesh(new THREE.BoxGeometry(tw + .04, d.wr * 1.25, .06), chromeMat);
+        sp.rotation.x = i * Math.PI / 5; spin.add(sp);
+      }
+
+      // Központi felnikupak Kerékagy
+      const hub = new THREE.Mesh(new THREE.CylinderGeometry(d.wr * .22, d.wr * .22, tw + .05, 12), bodyMat);
+      hub.rotation.z = Math.PI / 2; spin.add(hub);
+
+      // Perforált Féktárcsa (nem forog együtt a kerékkel)
+      const brakeDisc = new THREE.Mesh(new THREE.CylinderGeometry(d.wr * .58, d.wr * .58, .04, 20), brakeDiscMat);
+      brakeDisc.rotation.z = Math.PI / 2;
+      brakeDisc.position.x = sx * -(tw / 4);
+      out.add(brakeDisc);
+
+      // Féknyereg
+      const cal = new THREE.Mesh(new THREE.BoxGeometry(.1, .28, .22), brakeCalipMat);
+      cal.position.set(sx * -(tw / 4 + .02), d.wr * .22, 0); 
+      out.add(cal);
+
+      g.add(out); g.userData.wheels.push(spin);
+    });
+
+    // Realisztikus lágy árnyék az autó alatt
+    const sh = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 5.6), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .45 }));
+    sh.rotation.x = -Math.PI / 2; sh.position.y = .02; g.add(sh);
+
+    g.userData.tail = tailMat; scene.add(g); return g;
+  }
+
+  const rollCar = (m, dist, brake) => {
+    m.userData.wheels.forEach((w) => { w.rotation.x += dist / (w.parent.position.y); });
+    m.userData.tail.emissiveIntensity = brake ? 2.5 : 0.6;
+    m.userData.tail.color.setHex(brake ? 0xff3333 : 0xff0000);
+  };
+
+  // ---------- Állapotok & Logika ----------
+  const player = { x: 0, z: 0, h: 0, v: 0, steer: 0, lapsDone: 0, idx: 0, lastIdx: 0, mesh: null };
+  let ais = [], state = 'menu', cd = 0, raceTime = 0, msgTimer = 0, time = 0, camH = 0;
+  const keys = { l: false, r: false, gas: false, brk: false };
+  let ana = 0;
+
+  function nearest(x, z, from) {
+    let best = 0, bd = Infinity; const full = from < 0, count = full ? N : 121;
+    for (let k = 0; k < count; k++) {
+      const i = full ? k : (from + k - 60 + N) % N, dx = P[i].x - x, dz = P[i].z - z, d = dx * dx + dz * dz;
+      if (d < bd) { bd = d; best = i; }
+    }
+    return { i: best, d: Math.sqrt(bd) };
+  }
+  function placeOnTrack(u, lat) {
+    const w = wrap01(u), p = curve.getPointAt(w), t = curve.getTangentAt(w).setY(0).normalize();
+    return { x: p.x + t.z * lat, z: p.z - t.x * lat, h: Math.atan2(t.x, t.z), i: Math.floor(w * N) % N };
+  }
+
+  function rebuildCars() {
+    if (player.mesh) killObj(player.mesh); ais.forEach((a) => killObj(a.mesh));
+    player.mesh = makeCar(opt.car, COLORS[opt.col]);
+    const oc = COLORS.filter((_, i) => i !== opt.col), cfg = [[6, 3.5, .94], [16, -3.5, .92], [16, 3.5, .90], [26, -3.5, .93], [26, 3.5, .91], [36, -3.5, .89], [36, 3.5, .88]];
+    ais = cfg.map(([slot, lat, base], k) => ({ ci: (opt.car + 1 + k) % 3, slot, lat, base, col: oc[(k * 2) % oc.length], mesh: makeCar((opt.car + 1 + k) % 3, oc[(k * 2) % oc.length]), s: 0, v: 0, prog: 0 }));
+    gridPlace();
+  }
+  function gridPlace() {
+    const sp = placeOnTrack(-6 / L, -3.5);
+    player.mesh.position.set(sp.x, 0, sp.z); player.mesh.rotation.y = sp.h;
+    ais.forEach((a) => { const q = placeOnTrack(-a.slot / L, a.lat); a.mesh.position.set(q.x, 0, q.z); a.mesh.rotation.y = q.h; });
+  }
+
+  function resetRace() {
+    const sp = placeOnTrack(-6 / L, -3.5);
+    Object.assign(player, { x: sp.x, z: sp.z, h: sp.h, v: 0, steer: 0, lapsDone: 0, idx: sp.i, lastIdx: sp.i });
+    ais.forEach((a) => { a.s = -a.slot; a.v = 0; a.prog = N + (a.s / L) * N; });
+    camH = player.h; raceTime = 0; cd = 3.99; state = 'countdown';
+    player.mesh.position.set(player.x, 0, player.z); player.mesh.rotation.y = player.h;
+    camera.clearViewOffset(); camera.position.set(player.x - Math.sin(camH) * 9, 4.4, player.z - Math.cos(camH) * 9);
+    document.body.classList.remove('m');
+  }
+  function resetToTrack() {
+    const n = nearest(player.x, player.z, -1), q = placeOnTrack(n.i / N, 0);
+    Object.assign(player, { x: q.x, z: q.z, h: q.h, v: 0, idx: n.i, lastIdx: n.i });
+  }
+  function showMenu(title, text) {
+    state = 'menu'; document.body.classList.add('m');
+    $('ovTitle').textContent = title || 'Turbó Kör HD';
+    $('ovText').innerHTML = text || (LAPS + ' kör, ' + (ais.length || 7) + ' ellenfél. A pályáról lehajtva lassulsz.' + (isTouch ? ' Fektetett kijelzővel a legjobb.' : ' Nyilak / WASD: kormány és gáz, szóköz: fék, R: vissza a pályára.'));
+    $('go').textContent = title ? 'Újra' : 'Indítás';
+    camera.fov = 50; camera.updateProjectionMatrix(); gridPlace(); refresh();
+  }
+
+  // ---------- Menü Beállítások ----------
+  const stars = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
+  const ctlList = [['btn', 'Gombok'], ['slide', 'Csúszka'], ['tilt', 'Döntés'], ['key', 'Billentyűzet']]
+    .filter(([v]) => (v === 'tilt' ? isTouch && 'DeviceOrientationEvent' in window : v === 'key' ? true : isTouch));
+  const rows = [
+    ['rTrack', 'track', TRACKS.map((t, i) => ({ v: i, t: t.n })), () => { buildWorld(opt.track); rebuildCars(); }],
+    ['rCar', 'car', CARS.map((c, i) => ({ v: i, t: c.n })), rebuildCars],
+    ['rCol', 'col', COLORS.map((c, i) => ({ v: i, sw: c })), rebuildCars],
+    ['rCtl', 'ctl', ctlList.map(([v, t]) => ({ v, t })), applyCtl]
+  ];
+  rows.forEach(([id, key, items, fn]) => {
+    items.forEach((it) => {
+      const b = document.createElement('button'); b.className = 'chip' + (it.sw ? ' sw' : ''); b.textContent = it.t || '';
+      if (it.sw) { b.style.background = '#' + it.sw.toString(16).padStart(6, '0'); b.setAttribute('aria-label', 'Szín'); }
+      b.onclick = () => { opt[key] = it.v; save(); fn(); refresh(); };
+      $(id).appendChild(b);
+    });
+  });
+  function refresh() {
+    rows.forEach(([id, key, items]) => [...$(id).children].forEach((b, i) => b.classList.toggle('sel', items[i].v === opt[key])));
+    const c = CARS[opt.car];
+    $('stats').innerHTML = '<span>Sebesség ' + stars(c.r[0]) + '</span><span>Gyorsulás ' + stars(c.r[1]) + '</span><span>Kanyarok ' + stars(c.r[2]) + '</span>';
+    $('autoC').checked = opt.auto; const b = best();
+    $('rec').textContent = b ? 'Rekord ezen a pályán: ' + fmt(b) : '';
+    document.body.dataset.ctl = opt.ctl;
+  }
+  $('autoC').onchange = (e) => { opt.auto = e.target.checked; save(); applyCtl(); };
+  function applyCtl() {
+    const m = opt.ctl; document.body.dataset.ctl = m;
+    $('bl').style.display = $('br').style.display = m === 'btn' ? '' : 'none';
+    $('pad').style.display = m === 'slide' ? '' : 'none';
+    $('gas').style.display = opt.auto ? 'none' : '';
+  }
+
+  // ---------- HangFX ----------
+  let actx = null, osc = null, gain = null;
+  function startAudio() {
+    if (actx) { try { actx.resume(); } catch (e) {} return; }
+    try {
+      actx = new (window.AudioContext || window.webkitAudioContext)();
+      osc = actx.createOscillator(); osc.type = 'sawtooth';
+      const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 600;
+      gain = actx.createGain(); gain.gain.value = 0; osc.connect(lp); lp.connect(gain); gain.connect(actx.destination); osc.start();
+    } catch (e) { actx = null; }
+  }
+
+  // ---------- Vezérlés Események ----------
+  const keyMap = { ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r', ArrowUp: 'gas', KeyW: 'gas', ArrowDown: 'brk', KeyS: 'brk', Space: 'brk' };
+  window.addEventListener('keydown', (e) => {
+    if (keyMap[e.code]) { keys[keyMap[e.code]] = true; e.preventDefault(); }
+    if (e.code === 'KeyR' && state === 'race') resetToTrack();
+  });
+  window.addEventListener('keyup', (e) => { if (keyMap[e.code]) { keys[keyMap[e.code]] = false; e.preventDefault(); } });
+  function bindBtn(id, key) {
+    const el = $(id);
+    const on = (e) => { e.preventDefault(); keys[key] = true; el.classList.add('on'); };
+    const off = (e) => { e.preventDefault(); keys[key] = false; el.classList.remove('on'); };
+    el.addEventListener('pointerdown', on); ['pointerup', 'pointercancel', 'pointerleave'].forEach((n) => el.addEventListener(n, off));
+  }
+  ['bl:l', 'br:r', 'gas:gas', 'brk:brk'].forEach((s) => bindBtn(...s.split(':')));
+
+  (() => {
+    const pad = $('pad'), knob = $('knob'); let pid = null, x0 = 0;
+    pad.addEventListener('pointerdown', (e) => { pid = e.pointerId; x0 = e.clientX; pad.setPointerCapture(pid); });
+    pad.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== pid) return;
+      ana = clamp((e.clientX - x0) / 50, -1, 1); knob.style.transform = 'translateX(' + ana * 40 + 'px)';
+    });
+    const end = (e) => { if (e.pointerId === pid) { pid = null; ana = 0; knob.style.transform = ''; } };
+    pad.addEventListener('pointerup', end); pad.addEventListener('pointercancel', end);
+  })();
+
+  let s0 = null, tiltOn = false;
+  function onTilt(e) {
+    if (e.beta == null || e.gamma == null || opt.ctl !== 'tilt') return;
+    const b = e.beta * Math.PI / 180, g = e.gamma * Math.PI / 180, ux = -Math.cos(b) * Math.sin(g), uy = Math.sin(b);
+    const a = (((screen.orientation && screen.orientation.angle != null) ? screen.orientation.angle : (window.orientation || 0)) + 360) % 360;
+    const s = a === 90 ? uy : a === 270 ? -uy : a === 180 ? ux : -ux;
+    if (s0 === null) s0 = s;
+    const d = s - s0; ana = Math.abs(d) < .04 ? 0 : clamp(d / .45, -1, 1);
+  }
+  document.addEventListener('touchmove', (e) => { if (!e.target.closest('#panel')) e.preventDefault(); }, { passive: false });
+  document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  $('go').addEventListener('click', async () => {
+    startAudio();
+    if (opt.ctl === 'tilt' && !tiltOn) {
+      try {
+        if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
+          if ((await DeviceOrientationEvent.requestPermission()) !== 'granted') throw 0;
+        }
+        window.addEventListener('deviceorientation', onTilt); tiltOn = true;
+      } catch (e) { opt.ctl = 'btn'; applyCtl(); refresh(); }
+    }
+    if (isTouch) {
+      try { const el = document.documentElement, f = el.requestFullscreen || el.webkitRequestFullscreen;
+        if (f) { const r = f.call(el); if (r && r.then) r.then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {})).catch(() => {}); } } catch (e) {}
+    }
+    s0 = null; ana = 0; resetRace();
+  });
+  $('bMenu').onclick = () => showMenu();
+  $('bRst').onclick = () => { if (state === 'race') resetToTrack(); };
+
+  // ---------- Fizika és Ciklus Frissítés ----------
+  function updatePlayer(dt) {
+    const C = CARS[opt.car], active = state === 'race';
+    const target = active ? (keys.l ? 1 : 0) - (keys.r ? 1 : 0) - ((opt.ctl === 'slide' || opt.ctl === 'tilt') ? ana : 0) : 0;
+    player.steer += (clamp(target, -1, 1) - player.steer) * Math.min(1, dt * 7);
+    const near = nearest(player.x, player.z, player.idx), off = near.d > ROAD_W / 2 + .8, vmax = off ? 20 : C.top;
+    let v = player.v; const gas = active && (keys.gas || opt.auto), brk = active && keys.brk;
+    if (gas && v < vmax) v += 26 * C.acc * (1 - clamp(v / vmax, 0, 1)) * dt;
+    if (brk) v = v > 1 ? Math.max(0, v - 55 * dt) : Math.max(-10, v - 14 * dt);
+    if (!gas && !brk) v -= v * .35 * dt;
+    if (v > vmax) v += (vmax - v) * Math.min(1, 2.5 * dt);
+    v -= v * Math.abs(player.steer) * .12 * dt; player.v = v;
+    const rate = player.steer * 2.3 * C.grip * clamp(Math.abs(v) / 12, 0, 1) / (1 + Math.abs(v) * .014) * (v >= 0 ? 1 : -1);
+    player.h += rate * dt; player.x += Math.sin(player.h) * v * dt; player.z += Math.cos(player.h) * v * dt;
+    if (near.d > 90 && active) resetToTrack();
+    const idx = nearest(player.x, player.z, player.idx).i, dI = idx - player.lastIdx;
+    if (dI < -N / 2) player.lapsDone++; else if (dI > N / 2) player.lapsDone--;
+    player.lastIdx = idx; player.idx = idx;
+    player.mesh.position.set(player.x, 0, player.z); player.mesh.rotation.y = player.h;
+    player.mesh.rotation.z = -player.steer * clamp(player.v / C.top, 0, 1) * .05;
+    rollCar(player.mesh, v * dt, brk);
+  }
+  const playerProg = () => player.lapsDone * N + player.idx;
+
+  function updateAI(dt) {
+    const pp = playerProg();
+    ais.forEach((a, k) => {
+      if (state === 'race' || state === 'finished') {
+        const idx = Math.floor(wrap01(a.s / L) * N) % N;
+        const C = CARS[a.ci]; let target = C.top * a.base * (1 - clamp(curv[idx] * 1.8, 0, .45)); const gap = (a.prog - pp) * (L / N);
+        if (gap > 150) target *= .9; else if (gap < -100) target *= 1.06;
+        if (a.v < target) a.v = Math.min(target, a.v + 26 * C.acc * (1 - clamp(a.v / C.top, 0, 1)) * dt); else a.v += (target - a.v) * Math.min(1, dt * 2);
+        a.s += a.v * dt;
+      }
+      const q = placeOnTrack(a.s / L, a.lat + Math.sin(time * .3 + k * 2) * 2 * clamp(a.s / 80, 0, 1));
+      a.mesh.position.set(q.x, 0, q.z); a.mesh.rotation.y = q.h; a.prog = N + (a.s / L) * N;
+      rollCar(a.mesh, a.v * dt, false);
+      const dx = player.x - q.x, dz = player.z - q.z, d = Math.hypot(dx, dz);
+      if (d < 3.4 && d > .001) { const p = 3.4 - d; player.x += dx / d * p * .6; player.z += dz / d * p * .6; player.v *= 1 - Math.min(.5, 2 * dt); }
+    });
+  }
+
+  function updateCamera(dt) {
+    const d = ((player.h - camH + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+    camH += d * (1 - Math.exp(-4 * dt));
+    camera.position.lerp(new THREE.Vector3(player.x - Math.sin(camH) * 9, 4.4, player.z - Math.cos(camH) * 9), 1 - Math.exp(-9 * dt));
+    camera.lookAt(player.x + Math.sin(player.h) * 5, 1.2, player.z + Math.cos(player.h) * 5);
+    const fov = 62 + clamp(Math.abs(player.v) / CARS[opt.car].top, 0, 1) * 16;
+    if (Math.abs(camera.fov - fov) > .05) { camera.fov = fov; camera.updateProjectionMatrix(); }
+  }
+
+  // ---------- Minitérkép & Kijelző ----------
+  const mctx = $('map').getContext('2d');
+  const mx = (x) => 20 + (x - minX) * mScale + (200 - (maxX - minX) * mScale) / 2, mz = (z) => 20 + (z - minZ) * mScale + (200 - (maxZ - minZ) * mScale) / 2;
+  function drawMap() {
+    mctx.clearRect(0, 0, 240, 240); mctx.strokeStyle = 'rgba(255,255,255,.7)'; mctx.lineWidth = 7; mctx.lineJoin = 'round'; mctx.beginPath();
+    for (let i = 0; i <= N; i += 4) { const p = P[i % N]; i ? mctx.lineTo(mx(p.x), mz(p.z)) : mctx.moveTo(mx(p.x), mz(p.z)); }
+    mctx.closePath(); mctx.stroke();
+    ais.forEach((a) => { mctx.fillStyle = '#' + a.col.toString(16).padStart(6, '0'); mctx.beginPath(); mctx.arc(mx(a.mesh.position.x), mz(a.mesh.position.z), 6, 0, 7); mctx.fill(); });
+    mctx.fillStyle = '#' + COLORS[opt.col].toString(16).padStart(6, '0'); mctx.strokeStyle = '#fff'; mctx.lineWidth = 3;
+    mctx.beginPath(); mctx.arc(mx(player.x), mz(player.z), 8, 0, 7); mctx.fill(); mctx.stroke();
+  }
+  const rank = () => 1 + ais.filter((a) => a.prog > playerProg()).length;
+  function updateHUD() {
+    $('speed').innerHTML = Math.round(Math.abs(player.v) * 3.6) + ' <small>km/h</small>'; $('time').textContent = fmt(raceTime);
+    $('pos').textContent = 'Hely: ' + rank() + '/' + (ais.length + 1); $('lap').textContent = 'Kör: ' + clamp(player.lapsDone, 1, LAPS) + '/' + LAPS;
+    $('msg').textContent = state === 'countdown' ? Math.ceil(cd) : msgTimer > 0 ? 'RAJT!' : '';
+  }
+  function finish() {
+    const r = rank(), b = best(); let extra = '';
+    if (r === 1 && (!b || raceTime < b)) { saveBest(raceTime); extra = '<br>Új rekord!'; } 
+    showMenu(r === 1 ? 'Győztél!' : r + '. helyezés', 'Összidő: ' + fmt(raceTime) + extra);
+  }
+
+  // ---------- Fő Render Ciklus ----------
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(.05, (now - last) / 1000); last = now; time += dt;
+    if (state === 'countdown') { cd -= dt; if (cd <= 0) { state = 'race'; msgTimer = 1; } }
+    else if (state === 'race') { raceTime += dt; if (msgTimer > 0) msgTimer -= dt; }
+
+    if (state === 'menu') {
+      const c = player.mesh.position, t = time * .35;
+      camera.position.set(c.x + Math.sin(t) * 8.5, 3.1, c.z + Math.cos(t) * 8.5); camera.lookAt(c.x, .8, c.z);
+      if (W / H > 1.2) camera.setViewOffset(W, H, -W * .18, 0, W, H); else camera.clearViewOffset();
+    } else {
+      updatePlayer(dt); updateAI(dt);
+      if (state === 'race' && playerProg() >= N * (LAPS + 1)) finish();
+      drawMap(); updateHUD(); updateCamera(dt);
+    }
+    
+    if (theme.night) plight.position.set(player.mesh.position.x + Math.sin(player.mesh.rotation.y) * 6, 6, player.mesh.position.z + Math.cos(player.mesh.rotation.y) * 6);
+    
+    // Fényforrás követése az árnyék minőségéért
+    sun.position.set(player.mesh.position.x + 100, 200, player.mesh.position.z + 100);
+    sun.target = player.mesh;
+
+    if (actx && gain) {
+      osc.frequency.value = 55 + (state === 'menu' ? 0 : Math.abs(player.v)) * 3.2;
+      gain.gain.value = state === 'menu' ? 0 : .035 + ((keys.gas || opt.auto) ? .02 : 0);
+    }
+    renderer.render(scene, camera); requestAnimationFrame(frame);
+  }
+
+  if (!ctlList.some(([v]) => v === opt.ctl)) opt.ctl = ctlList[0][0];
+  buildWorld(opt.track); rebuildCars(); applyCtl(); showMenu();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
